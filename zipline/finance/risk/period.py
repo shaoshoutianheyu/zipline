@@ -25,13 +25,15 @@ from six import iteritems
 import pandas as pd
 
 from . import risk
-from . risk import (
+from . risk import check_entry
+
+from qrisk import (
     alpha,
-    check_entry,
+    beta,
     downside_risk,
     information_ratio,
     sharpe_ratio,
-    sortino_ratio,
+    sortino_ratio
 )
 
 log = logbook.Logger('Risk Period')
@@ -112,6 +114,7 @@ class RiskMetricsPeriod(object):
             self.trading_calendar,
         )
         self.sharpe = self.calculate_sharpe()
+        self.downside_risk = self.calculate_downside_risk()
         # The consumer currently expects a 0.0 value for sharpe in period,
         # this differs from cumulative which was np.nan.
         # When factoring out the sharpe_ratio, the different return types
@@ -123,8 +126,11 @@ class RiskMetricsPeriod(object):
             self.sharpe = 0.0
         self.sortino = self.calculate_sortino()
         self.information = self.calculate_information()
-        self.beta, self.algorithm_covariance, self.benchmark_variance, \
-            self.condition_number, self.eigen_values = self.calculate_beta()
+        self.algorithm_covariance, self.benchmark_variance, \
+            self.condition_number, self.eigen_values \
+            = self.calculate_covariance()
+
+        self.beta = self.calculate_beta()
         self.alpha = self.calculate_alpha()
         self.excess_return = self.algorithm_period_returns - \
             self.treasury_period_return
@@ -214,31 +220,45 @@ class RiskMetricsPeriod(object):
         """
         http://en.wikipedia.org/wiki/Sharpe_ratio
         """
-        return sharpe_ratio(self.algorithm_volatility,
-                            self.algorithm_period_returns,
-                            self.treasury_period_return)
+        return sharpe_ratio(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
+
+    def calculate_downside_risk(self):
+        return downside_risk(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
 
     def calculate_sortino(self):
         """
         http://en.wikipedia.org/wiki/Sortino_ratio
         """
-        mar = downside_risk(self.algorithm_returns,
-                            self.mean_algorithm_returns,
-                            self.num_trading_days)
-        # Hold on to downside risk for debugging purposes.
-        self.downside_risk = mar
-        return sortino_ratio(self.algorithm_period_returns,
-                             self.treasury_period_return,
-                             mar)
+        return sortino_ratio(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
 
     def calculate_information(self):
         """
         http://en.wikipedia.org/wiki/Information_ratio
         """
-        return information_ratio(self.algorithm_returns,
-                                 self.benchmark_returns)
+        return information_ratio(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
 
     def calculate_beta(self):
+        """
+        http://en.wikipedia.org/wiki/Beta_(finance)
+        """
+        return beta(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
+
+    def calculate_covariance(self):
         """
 
         .. math::
@@ -250,7 +270,7 @@ class RiskMetricsPeriod(object):
         # it doesn't make much sense to calculate beta for less than two days,
         # so return nan.
         if len(self.algorithm_returns) < 2:
-            return np.nan, np.nan, np.nan, np.nan, []
+            return np.nan, np.nan, np.nan, []
 
         returns_matrix = np.vstack([self.algorithm_returns,
                                     self.benchmark_returns])
@@ -259,16 +279,14 @@ class RiskMetricsPeriod(object):
         # If there are missing benchmark values, then we can't calculate the
         # beta.
         if not np.isfinite(C).all():
-            return np.nan, np.nan, np.nan, np.nan, []
+            return np.nan, np.nan, np.nan, []
 
         eigen_values = la.eigvals(C)
         condition_number = max(eigen_values) / min(eigen_values)
         algorithm_covariance = C[0][1]
         benchmark_variance = C[1][1]
-        beta = algorithm_covariance / benchmark_variance
 
         return (
-            beta,
             algorithm_covariance,
             benchmark_variance,
             condition_number,
@@ -279,10 +297,10 @@ class RiskMetricsPeriod(object):
         """
         http://en.wikipedia.org/wiki/Alpha_(investment)
         """
-        return alpha(self.algorithm_period_returns,
-                     self.treasury_period_return,
-                     self.benchmark_period_returns,
-                     self.beta)
+        return alpha(
+            self.algorithm_returns,
+            self.benchmark_returns
+        )
 
     def calculate_max_drawdown(self):
         compounded_returns = []
