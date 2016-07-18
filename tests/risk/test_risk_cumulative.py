@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 import zipline.finance.risk as risk
 from zipline.utils import factory
-import pandas as pd
 
 from zipline.testing.fixtures import WithTradingEnvironment, ZiplineTestCase
 
@@ -38,16 +37,10 @@ class TestRisk(WithTradingEnvironment, ZiplineTestCase):
 
     def init_instance_fixtures(self):
         super(TestRisk, self).init_instance_fixtures()
-<<<<<<< 30f5a8fcfa4a194f05d58f50cf0a2b06dd8085cc
-
 
         start_session = pd.Timestamp("2006-01-01", tz='UTC')
         end_session = pd.Timestamp("2006-12-29", tz='UTC')
 
-=======
-        start_date = pd.Timestamp('2006-01-01', tz=pytz.utc)
-        end_date = pd.Timestamp('2006-12-29', tz=pytz.utc)
->>>>>>> ENH: Change datetime.datetime to pd.Timestamp in tests
         self.sim_params = SimulationParameters(
             start_session=start_session,
             end_session=end_session,
