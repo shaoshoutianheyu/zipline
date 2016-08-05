@@ -44,5 +44,6 @@ def minute_to_session(minute_frame, calendar):
     # Group minutes into their respective days. Note that this will
     # create groups for all trading days in the desired range,
     # including days with no minute data.
-    return minute_frame.resample(calendar.day,
-                                 how=_MINUTE_TO_SESSION_OHCLV_HOW)
+    return minute_frame.resample(calendar.day).apply(
+        _MINUTE_TO_SESSION_OHCLV_HOW
+    )
