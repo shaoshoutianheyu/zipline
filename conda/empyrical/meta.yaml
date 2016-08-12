@@ -1,0 +1,72 @@
+package:
+  name: empyrical
+  version: "0.1.8"
+
+source:
+  fn: empyrical-0.1.8.tar.gz
+  url: https://pypi.python.org/packages/d5/cc/d848fdd29e82214d4b123ec851441db68d328c52a913bb7cc88e9803ac1a/empyrical-0.1.8.tar.gz
+  md5: c106a4d4b548d5f210e99953417558f9
+#  patches:
+   # List any patch files here
+   # - fix.patch
+
+# build:
+  # noarch_python: True
+  # preserve_egg_dir: True
+  # entry_points:
+    # Put any entry points (scripts to be generated automatically) here. The
+    # syntax is module:function.  For example
+    #
+    # - empyrical = empyrical:main
+    #
+    # Would create an entry point called empyrical that calls empyrical.main()
+
+
+  # If this is a new build for the same version, increment the build
+  # number. If you do not include this key, it defaults to 0.
+  # number: 1
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - numpy >=1.9.2
+    - pandas >=0.16.1
+    - scipy >=0.15.1
+    - bottleneck >=1.0.0
+
+  run:
+    - python
+    - numpy >=1.9.2
+    - pandas >=0.16.1
+    - scipy >=0.15.1
+    - bottleneck >=1.0.0
+
+test:
+  # Python imports
+  imports:
+    - empyrical
+    - empyrical.tests
+
+  # commands:
+    # You can put test commands to be run here.  Use this to test that the
+    # entry points work.
+
+
+  # You can also put a file called run_test.py in the recipe that will be run
+  # at test time.
+
+  requires:
+    - nose >=1.3.7
+    - nose_parameterized >=0.5.0
+    # Put any additional test requirements here.  For example
+    # - nose
+
+about:
+  home: https://github.com/quantopian/empyrical
+  license: Apache Software License
+  summary: 'empyrical is a Python library with performance and risk statistics\ncommonly used in quantitative finance'
+
+# See
+# http://docs.continuum.io/conda/build.html for
+# more information about meta.yaml
