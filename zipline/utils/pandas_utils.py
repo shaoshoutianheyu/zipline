@@ -3,6 +3,7 @@ Utilities for working with pandas objects.
 """
 from itertools import product
 import operator as op
+import uuid
 
 import pandas as pd
 from distutils.version import StrictVersion
@@ -96,3 +97,11 @@ def mask_between_time(dts, start, end, include_start=True, include_end=True):
         left_op(start_micros, time_micros),
         right_op(time_micros, end_micros),
     )
+
+
+def cross_product(df1, df2):
+    key = uuid.uuid4()
+    df1[key] = 1
+    df2[key] = 1
+    merged = pd.merge(df1, df2, on=key)
+    return merged.drop(key, axis=1)
