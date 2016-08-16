@@ -140,3 +140,7 @@ class TestRisk(WithTradingEnvironment, ZiplineTestCase):
             all(isinstance(x, float)
                 for x in self.cumulative_metrics.max_drawdowns),
             True)
+
+    def test_representation(self):
+        assert all([metric in self.cumulative_metrics.__repr__() for metric in
+                   self.cumulative_metrics.METRIC_NAMES])
