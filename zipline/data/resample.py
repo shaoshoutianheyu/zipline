@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections import OrderedDict
+from types import MethodType
 
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
+from zipline.data.minute_bars import MinuteBarReader
 from zipline.data.session_bars import SessionBarReader
 from zipline.utils.memoize import lazyval
 
@@ -498,3 +500,21 @@ class MinuteResampleSessionBarReader(SessionBarReader):
         return self.trading_calendar.minute_to_session_label(
             self._minute_bar_reader.last_available_dt
         )
+
+
+class UpsampleMinuteBarReader(MinuteBarReader):
+
+    def __init__(self, trading_calendar, minute_reader):
+        self._trading_calendar = trading_calendar
+        self._minute_reader = minute_reader
+
+        self.last_available_dt = MethodType(
+            minute_reader.last_available_dt, self)
+        self.first_trading_day = MethodType(
+            minute_reader.first_trading_day, self)
+        self.get_value = MethodType(minute_reader.get_value, self)
+        self.get_last_traded_dt = MethodType(
+            minute_reader.get_last_traded_dt, self)
+
+    def load_raw_arrays(self, fields, start_dt, end_dt, sids):
+        pass
