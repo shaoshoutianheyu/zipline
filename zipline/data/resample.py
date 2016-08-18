@@ -502,19 +502,23 @@ class MinuteResampleSessionBarReader(SessionBarReader):
         )
 
 
-class UpsampleMinuteBarReader(MinuteBarReader):
+class UpsampleBarReader(object):
 
-    def __init__(self, trading_calendar, minute_reader):
+    def __init__(self, trading_calendar, reader):
         self._trading_calendar = trading_calendar
-        self._minute_reader = minute_reader
+        self._reader = reader
 
-        self.last_available_dt = MethodType(
-            minute_reader.last_available_dt, self)
-        self.first_trading_day = MethodType(
-            minute_reader.first_trading_day, self)
-        self.get_value = MethodType(minute_reader.get_value, self)
-        self.get_last_traded_dt = MethodType(
-            minute_reader.get_last_traded_dt, self)
+        self.last_available_dt = MethodType(reader.last_available_dt, self)
+        self.first_trading_day = MethodType(reader.first_trading_day, self)
+        self.get_value = MethodType(reader.get_value, self)
+        self.get_last_traded_dt = MethodType(reader.get_last_traded_dt, self)
 
+
+class MinuteUpsampleBarReader(UpsampleBarReader, MinuteBarReader):
+    def load_raw_arrays(self, fields, start_dt, end_dt, sids):
+        pass
+
+
+class UpsampleSessionBarReader(UpsampleBarReader, SessionBarReader):
     def load_raw_arrays(self, fields, start_dt, end_dt, sids):
         pass
