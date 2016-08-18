@@ -2,6 +2,7 @@ import datetime
 
 import numpy as np
 import pandas as pd
+from zipline.pipeline.common import TS_FIELD_NAME, SID_FIELD_NAME
 from zipline.utils.pandas_utils import mask_between_time
 
 
@@ -272,3 +273,34 @@ def check_data_query_args(data_query_time, data_query_tz):
                 data_query_tz,
             ),
         )
+
+
+def last_in_date_group(df, reindex, dates, assets, have_sids=True):
+            idx = dates[dates.searchsorted(
+                df[TS_FIELD_NAME].values.astype('datetime64[D]')
+            )]
+            if have_sids:
+                idx = [idx, SID_FIELD_NAME]
+
+            last_in_group = df.drop(TS_FIELD_NAME, axis=1).groupby(
+                idx,
+                sort=False,
+            ).last()
+
+            if have_sids:
+                last_in_group = last_in_group.unstack()
+
+            if reindex:
+                if have_sids:
+                    cols = last_in_group.columns
+                    last_in_group = last_in_group.reindex(
+                        index=dates,
+                        columns=pd.MultiIndex.from_product(
+                            (cols.levels[0], assets),
+                            names=cols.names,
+                        ),
+                    )
+                else:
+                    last_in_group = last_in_group.reindex(dates)
+
+            return last_in_group

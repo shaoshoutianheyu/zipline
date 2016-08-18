@@ -1,7 +1,10 @@
 from abc import abstractmethod
+from collections import defaultdict
 import pandas as pd
 from six import viewvalues
 from toolz import groupby
+from zipline.lib.adjusted_array import AdjustedArray
+from zipline.lib.adjustment import Float641DArrayOverwrite
 
 from zipline.pipeline.common import (
     EVENT_DATE_FIELD_NAME,
@@ -13,6 +16,7 @@ from zipline.pipeline.common import (
 from zipline.pipeline.loaders.base import PipelineLoader
 from zipline.pipeline.loaders.frame import DataFrameLoader
 from zipline.utils.pandas_utils import cross_product
+from zipline.pipeline.loaders.utils import last_in_date_group
 
 NEXT_FISCAL_QUARTER = 'next_fiscal_quarter'
 NEXT_FISCAL_YEAR = 'next_fiscal_year'
@@ -96,12 +100,51 @@ class QuarterEstimatesLoader(PipelineLoader):
     def load_quarters(self, num_quarters, dates_sids, final_releases_per_qtr):
         pass
 
+    def get_adjustments(self, df, column, mask, assets,
+                        final_releases_per_qtr, dates, raw_events):
+        adjustments = defaultdict(list)
+        for idx, sid in enumerate(assets):
+            # Get the releases for a particular sid
+            sid_data = final_releases_per_qtr[final_releases_per_qtr[
+                SID_FIELD_NAME] == sid
+            ]
+            # Get the release dates for this sid - these are the quarter
+            # boundaries
+            qtr_boundaries, years, qtrs = sid_data[[
+                EVENT_DATE_FIELD_NAME,
+                FISCAL_YEAR_FIELD_NAME,
+                FISCAL_QUARTER_FIELD_NAME
+            ]].unique()
+            next_qtr_starts = dates.searchsorted(qtr_boundaries, sid='right')
+            for idx, start in enumerate(next_qtr_starts):
+                # Here we need to take the new quarter and, for all dates in
+                # previous quarters, apply adjustments that use this
+                # quarter's values for those previous dates.
+                adjustments[start].extend(Float641DArrayOverwrite(first_row,
+                                                             last_row,
+                                                             idx,
+                                                             idx,
+                                                             value))
+        return AdjustedArray(
+                df[column.name].values.astype(column.dtype),
+                mask,
+                adjustments_from_deltas(
+                    dates,
+                    sparse_output[TS_FIELD_NAME].values,
+                    column_idx,
+                    column.name,
+                    asset_idx,
+                    sparse_deltas,
+                ),
+                column.missing_value,
+            )
+
     def load_adjusted_array(self, columns, dates, assets, mask):
         # TODO: how can we enforce that datasets have the num_quarters
         # attribute, given that they're created dynamically?
         groups = groupby(lambda x: x.dataset.num_quarters, columns)
         groups_columns = dict(groups)
-        if (pd.Series(groups_columns.keys()) < 0).any():
+        if (pd.Series(groups_columns) < 0).any():
             raise ValueError("Must pass a number of quarters >= 0")
         out = {}
         date_values = pd.DataFrame({SIMULTATION_DATES: dates})
@@ -138,6 +181,10 @@ class QuarterEstimatesLoader(PipelineLoader):
 
             for c in columns:
                 column_name = name_map[c]
+                pivoted = result.pivot(index=SIMULTATION_DATES,
+                                       columns=SID_FIELD_NAME,
+                                       values=column_name)
+                adjusted_array = self.get_adjustments(pivoted, c, mask, assets)
                 # Pivot to get a DataFrame with dates as the index and
                 # sids as the columns.
                 loader = DataFrameLoader(
@@ -145,7 +192,7 @@ class QuarterEstimatesLoader(PipelineLoader):
                     result.pivot(index=SIMULTATION_DATES,
                                  columns=SID_FIELD_NAME,
                                  values=column_name),
-                    adjustments=None
+                    adjustments=adjusted_array
                 )
                 out[c] = loader.load_adjusted_array([c],
                                                     dates,

@@ -175,6 +175,7 @@ from zipline.pipeline.common import (
 from zipline.pipeline.data.dataset import DataSet, Column
 from zipline.pipeline.loaders.utils import (
     check_data_query_args,
+    last_in_date_group,
     normalize_data_query_bounds,
     normalize_timestamp_to_query_time,
 )
@@ -870,9 +871,9 @@ def adjustments_from_deltas_with_sids(dense_dates,
 
     Parameters
     ----------
-    dates : pd.DatetimeIndex
-        The dates requested by the loader.
     dense_dates : pd.DatetimeIndex
+        The dates requested by the loader.
+    sparse_dates : pd.DatetimeIndex
         The dates that were in the raw data.
     column_idx : int
         The index of the column in the dataset.
@@ -1092,38 +1093,14 @@ class BlazeLoader(dict):
         )
         sparse_output.drop(AD_FIELD_NAME, axis=1, inplace=True)
 
-        def last_in_date_group(df, reindex, have_sids=have_sids):
-            idx = dates[dates.searchsorted(
-                df[TS_FIELD_NAME].values.astype('datetime64[D]')
-            )]
-            if have_sids:
-                idx = [idx, SID_FIELD_NAME]
-
-            last_in_group = df.drop(TS_FIELD_NAME, axis=1).groupby(
-                idx,
-                sort=False,
-            ).last()
-
-            if have_sids:
-                last_in_group = last_in_group.unstack()
-
-            if reindex:
-                if have_sids:
-                    cols = last_in_group.columns
-                    last_in_group = last_in_group.reindex(
-                        index=dates,
-                        columns=pd.MultiIndex.from_product(
-                            (cols.levels[0], assets),
-                            names=cols.names,
-                        ),
-                    )
-                else:
-                    last_in_group = last_in_group.reindex(dates)
-
-            return last_in_group
-
-        sparse_deltas = last_in_date_group(non_novel_deltas, reindex=False)
-        dense_output = last_in_date_group(sparse_output, reindex=True)
+        sparse_deltas = last_in_date_group(non_novel_deltas,
+                                           dates,
+                                           assets,
+                                           reindex=False)
+        dense_output = last_in_date_group(sparse_output,
+                                          dates,
+                                          assets,
+                                          reindex=True)
         dense_output.ffill(inplace=True)
 
         # Fill in missing values specified by each column. This is made
