@@ -20,6 +20,28 @@ class CMECalendarTestCase(ExchangeCalendarTestBase, TestCase):
                 self.calendar.is_session(pd.Timestamp(date, tz='UTC'))
             )
 
+    #    March 2016
+    # Su Mo Tu We Th Fr Sa
+    #        1  2  3  4  5
+    #  6  7  8  9 10 11 12
+    # 13 14 15 16 17 18 19
+    # 20 21 22 23 24 25 26
+    # 27 28 29 30 31
+
+    def test_days_of_week(self):
+        a_week = [
+            "2016-03-06", # Sun
+            "2016-03-07", # Mon
+            "2016-03-09", # Tue
+            "2016-03-10", # Wed
+            "2016-03-11", # Thu
+            "2016-03-12", # Fri
+        ]
+        for date in a_week:
+            self.assertTrue(
+                self.calendar.is_session(pd.Timestamp(date, tz='UTC'))
+            )
+
     def test_2016_early_closes(self):
         # mlk day: 2016-01-18
         # presidents: 2016-02-15

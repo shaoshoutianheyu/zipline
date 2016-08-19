@@ -105,11 +105,16 @@ class TradingCalendar(with_metaclass(ABCMeta)):
             _special_closes.map(self.minute_to_session_label)
         )
 
+    @property
+    def weekmask(self):
+        return 'Mon Tue Wed Thu Fri'
+
     @lazyval
     def day(self):
         return CustomBusinessDay(
             holidays=self.adhoc_holidays,
             calendar=self.regular_holidays,
+            weekmask=self.weekmask
         )
 
     @abstractproperty

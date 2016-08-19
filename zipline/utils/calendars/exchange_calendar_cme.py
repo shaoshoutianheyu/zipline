@@ -72,6 +72,10 @@ class CMEExchangeCalendar(TradingCalendar):
         return -1
 
     @property
+    def weekmask(self):
+        return 'Sun Mon Tue Wed Thu Fri'
+
+    @property
     def regular_holidays(self):
         # The CME has different holiday rules depending on the type of
         # instrument. For example, http://www.cmegroup.com/tools-information/holiday-calendar/files/2016-4th-of-july-holiday-schedule.pdf # noqa
