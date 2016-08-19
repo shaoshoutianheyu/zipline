@@ -527,3 +527,27 @@ class TestResampleSessionBars(WithBcolzFutureMinuteBarReader,
                     assert_almost_equal(values[col], result,
                                         err_msg="sid={0} col={1} dt={2}".
                                         format(sid, col, dt))
+
+
+class TestUpsampleSessionBars(WithBcolzEquityMinuteBarReader,
+                              ZiplineTestCase):
+
+    TRADING_CALENDAR_STRS = ('CME', 'NYSE')
+    TRADING_CALENDAR_PRIMARY_CAL = 'CME'
+
+    ASSET_FINDER_EQUITY_SIDS = 1, 2, 3
+
+    #    March 2016
+    # Su Mo Tu We Th Fr Sa
+    #        1  2  3  4  5
+    #  6  7  8  9 10 11 12
+    # 13 14 15 16 17 18 19
+    # 20 21 22 23 24 25 26
+    # 27 28 29 30 31
+
+    START_DATE = pd.Timestamp('2016-03-14', tz='UTC')
+    END_DATE = pd.Timestamp('2016-03-25', tz='UTC')
+
+    def test_upsample_to_cme(self):
+        import nose; nose.tools.set_trace()
+        assert True

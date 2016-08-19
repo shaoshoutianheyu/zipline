@@ -997,8 +997,8 @@ class WithBcolzEquityMinuteBarReader(WithEquityMinuteBarData, WithTmpDir):
         writer = BcolzMinuteBarWriter(
             days[0],
             p,
-            cls.trading_calendar.schedule.market_open.loc[days],
-            cls.trading_calendar.schedule.market_close.loc[days],
+            cls.nyse_calendar.schedule.market_open.loc[days],
+            cls.nyse_calendar.schedule.market_close.loc[days],
             US_EQUITIES_MINUTES_PER_DAY
         )
         writer.write(cls.make_equity_minute_bar_data())
