@@ -1115,14 +1115,14 @@ class BcolzMinuteBarReader(MinuteBarReader):
                             excl_start - start_idx:excl_stop - start_idx + 1]
                         values = np.delete(values, excl_slice)
 
-                if field != 'volume':
-                    values *= self._ohlc_inverses[sid]
-
                 where = values != 0
                 # first slice down to len(where) because we might not have
                 # written data for all the minutes requested
-                out[:len(where), i][where] = values[where]
-            if field != 'volume':
-                out *= self._ohlc_inverse
+                if field != 'volume':
+                    out[:len(where), i][where] = (
+                        values[where] * self._ohlc_inverses[sid])
+                else:
+                    out[:len(where), i][where] = values[where]
+
             results.append(out)
         return results
