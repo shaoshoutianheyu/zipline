@@ -24,6 +24,7 @@ from intervaltree import IntervalTree
 import numpy as np
 import pandas as pd
 from six import with_metaclass
+from toolz import keymap, valmap
 
 from zipline.data._minute_bar_internal import (
     minute_value,
@@ -208,7 +209,7 @@ class BcolzMinuteBarMetadata(object):
     minutes_per_day : int
         The number of minutes per each period.
     """
-    FORMAT_VERSION = 2
+    FORMAT_VERSION = 3
 
     METADATA_FILENAME = 'metadata.json'
 
@@ -228,8 +229,6 @@ class BcolzMinuteBarMetadata(object):
                 # Version was first written with version 1, assume 0,
                 # if version does not match.
                 version = 0
-
-            ohlc_ratio = raw_data['ohlc_ratio']
 
             if version >= 1:
                 minutes_per_day = raw_data['minutes_per_day']
@@ -254,8 +253,13 @@ class BcolzMinuteBarMetadata(object):
                         raw_data['market_closes'][-1], unit='m', tz='UTC')
                 )
 
+            if version >= 3:
+                ohlc_ratios = keymap(int, raw_data['ohlc_ratios'])
+            else:
+                ohlc_ratios = None
+
             return cls(
-                ohlc_ratio,
+                ohlc_ratios,
                 calendar,
                 start_session,
                 end_session,
@@ -264,7 +268,7 @@ class BcolzMinuteBarMetadata(object):
 
     def __init__(
         self,
-        ohlc_ratio,
+        ohlc_ratios,
         calendar,
         start_session,
         end_session,
@@ -273,7 +277,7 @@ class BcolzMinuteBarMetadata(object):
         self.calendar = calendar
         self.start_session = start_session
         self.end_session = end_session
-        self.ohlc_ratio = ohlc_ratio
+        self.ohlc_ratios = ohlc_ratios
         self.minutes_per_day = minutes_per_day
 
     def write(self, rootdir):
@@ -284,9 +288,10 @@ class BcolzMinuteBarMetadata(object):
 
         version : int
             The value of FORMAT_VERSION of this class.
-        ohlc_ratio : int
-             The factor by which the pricing data is multiplied so that the
-             float data can be stored as an integer.
+        ohlc_ratios : dict
+             A dict mapping each sid in the output to the factor by
+             which the pricing data is multiplied so that the float data
+             can be stored as an integer.
         minutes_per_day : int
             The number of minutes per each period.
         calendar_name : str
@@ -323,7 +328,7 @@ class BcolzMinuteBarMetadata(object):
 
         metadata = {
             'version': self.FORMAT_VERSION,
-            'ohlc_ratio': self.ohlc_ratio,
+            'ohlc_ratios': self.ohlc_ratios,
             'minutes_per_day': self.minutes_per_day,
             'calendar_name': self.calendar.name,
             'start_session': str(self.start_session.date()),
@@ -431,7 +436,7 @@ class BcolzMinuteBarWriter(object):
                  start_session,
                  end_session,
                  minutes_per_day,
-                 ohlc_ratio=OHLC_RATIO,
+                 ohlc_ratios,
                  expectedlen=DEFAULT_EXPECTEDLEN):
 
         self._rootdir = rootdir
@@ -444,13 +449,13 @@ class BcolzMinuteBarWriter(object):
         self._session_labels = self._schedule.index
         self._minutes_per_day = minutes_per_day
         self._expectedlen = expectedlen
-        self._ohlc_ratio = ohlc_ratio
+        self._ohlc_ratios = ohlc_ratios
 
         self._minute_index = _calc_minute_index(
             self._schedule.market_open, self._minutes_per_day)
 
         metadata = BcolzMinuteBarMetadata(
-            self._ohlc_ratio,
+            self._ohlc_ratios,
             self._calendar,
             self._start_session,
             self._end_session,
@@ -769,7 +774,7 @@ class BcolzMinuteBarWriter(object):
         dt_ixs = np.searchsorted(all_minutes_in_window.values,
                                  dts.astype('datetime64[ns]'))
 
-        ohlc_ratio = self._ohlc_ratio
+        ohlc_ratio = self._ohlc_ratios[sid]
 
         def convert_col(col):
             """Adapt float column into a uint32 column.
@@ -829,7 +834,7 @@ class BcolzMinuteBarReader(MinuteBarReader):
         self._market_close_values = self._market_closes.values.\
             astype('datetime64[m]').astype(np.int64)
 
-        self._ohlc_inverse = 1.0 / metadata.ohlc_ratio
+        self._ohlc_inverses = valmap(lambda x: 1.0 / x, metadata.ohlc_ratios)
 
         self._minutes_per_day = metadata.minutes_per_day
 
@@ -996,8 +1001,9 @@ class BcolzMinuteBarReader(MinuteBarReader):
                 return 0
             else:
                 return np.nan
+
         if field != 'volume':
-            value *= self._ohlc_inverse
+            value *= self._ohlc_inverses[sid]
         return value
 
     def get_last_traded_dt(self, asset, dt):
@@ -1108,6 +1114,10 @@ class BcolzMinuteBarReader(MinuteBarReader):
                         excl_slice = np.s_[
                             excl_start - start_idx:excl_stop - start_idx + 1]
                         values = np.delete(values, excl_slice)
+
+                if field != 'volume':
+                    values *= self._ohlc_inverses[sid]
+
                 where = values != 0
                 # first slice down to len(where) because we might not have
                 # written data for all the minutes requested
